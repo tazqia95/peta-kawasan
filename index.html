@@ -15,6 +15,31 @@
             height: 100%;
             width: 100%;
         }
+
+        /* --- Efek Animasi Berdenyut untuk Ikon Mobil --- */
+        @keyframes carPulseAnimation {
+            0% {
+                transform: translate(-50%, -50%) scale(1);
+                filter: drop-shadow(0 0 0 rgba(0, 122, 255, 0));
+            }
+            50% {
+                transform: translate(-50%, -50%) scale(1.15); /* Mobil sedikit membesar */
+                filter: drop-shadow(0 0 12px rgba(0, 122, 255, 0.8)); /* Bayangan bersinar biru */
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(1);
+                filter: drop-shadow(0 0 0 rgba(0, 122, 255, 0));
+            }
+        }
+
+        /* Class CSS untuk dipasang ke elemen gambar mobil */
+        .pulsing-car {
+            width: 50px;
+            height: auto;
+            position: absolute;
+            animation: carPulseAnimation 1.5s infinite ease-in-out;
+            transform-origin: center center;
+        }
     </style>
 </head>
 <body>
@@ -25,45 +50,58 @@
         let map;
         let userMarker;
 
-        function initMap() {
-    // Membaca parameter dari URL (lat, lng, dan nama pos)
-    const urlParams = new URLSearchParams(window.location.search);
-    
-    // Nilai default jika URL dibuka tanpa parameter
-    const defaultLat = parseFloat(urlParams.get('lat')) || -6.7373; 
-    const defaultLng = parseFloat(urlParams.get('lng')) || 107.6536;
-    const namaPos = urlParams.get('pos') || "Pos Informasi";
+        async function initMap() {
+            // Membaca parameter dari URL (lat, lng, dan nama pos)
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            // Nilai default jika URL dibuka tanpa parameter
+            const defaultLat = parseFloat(urlParams.get('lat')) || -6.7373; 
+            const defaultLng = parseFloat(urlParams.get('lng')) || 107.6536;
+            const namaPos = urlParams.get('pos') || "Pos Informasi";
 
-    const titikAwal = { lat: defaultLat, lng: defaultLng };
+            const titikAwal = { lat: defaultLat, lng: defaultLng };
 
-    // Inisialisasi Google Maps
-    map = new google.maps.Map(document.getElementById("map"), {
-        center: titikAwal,
-        zoom: 18,
-        disableDefaultUI: true,
-    });
+            // Memuat library Google Maps dan Marker
+            const { Map } = await google.maps.importLibrary("maps");
+            const { AdvancedMarkerElement } = await google.maps.importLibrary("marker");
 
-    // Menampilkan penanda awal sesuai Pos tempat scan
-    userMarker = new google.maps.Marker({
-        position: titikAwal,
-        map: map,
-        title: `Lokasi Awal: ${namaPos}`,
-        icon: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png"
-    });
+            // Inisialisasi Google Maps
+            map = new Map(document.getElementById("map"), {
+                center: titikAwal,
+                zoom: 18,
+                disableDefaultUI: true,
+                mapId: "DEMO_MAP_ID"
+            });
 
-    // Info Window sederhana untuk memberi tahu pengunjung posisi awal mereka
-    const infoWindow = new google.maps.InfoWindow({
-        content: `<b>Anda berada di ${namaPos}</b><br>Mengaktifkan GPS...`
-    });
-    infoWindow.open(map, userMarker);
+            // 1. Membuat elemen gambar mobil dengan efek berdenyut
+            const carElement = document.createElement('img');
+            carElement.src = 'mobil.png'; // Pastikan file gambar mobil.png ada di folder yang sama
+            carElement.className = 'pulsing-car'; // Menghubungkan ke animasi CSS di atas
 
-    // Memulai pelacakan GPS
-    mulaiTracking();
-}
+            // 2. Gunakan AdvancedMarkerElement dengan ikon mobil
+            userMarker = new AdvancedMarkerElement({
+                map: map,
+                position: titikAwal,
+                title: `Lokasi Awal: ${namaPos}`,
+                content: carElement
+            });
+
+            // Info Window sederhana untuk memberi tahu pengunjung posisi awal mereka
+            const infoWindow = new google.maps.InfoWindow({
+                content: `<b>Anda berada di ${namaPos}</b><br>Mengaktifkan GPS...`
+            });
+            
+            infoWindow.open({
+                anchor: userMarker,
+                map: map,
+            });
+
+            // Memulai pelacakan GPS
+            mulaiTracking();
+        }
 
         function mulaiTracking() {
             if (navigator.geolocation) {
-                // watchPosition akan terus mengambil lokasi terbaru selama web terbuka
                 navigator.geolocation.watchPosition(
                     (position) => {
                         const lokasiBaru = {
@@ -71,17 +109,17 @@
                             lng: position.coords.longitude,
                         };
 
-                        // Menggeser marker ke posisi GPS terbaru
-                        userMarker.setPosition(lokasiBaru);
+                        // Menggeser posisi mobil ke lokasi GPS terbaru secara real-time
+                        userMarker.position = lokasiBaru;
                         
-                        // Opsional: Membuat peta otomatis bergeser (pan) mengikuti marker
+                        // Membuat peta otomatis bergeser mengikuti pergerakan GPS
                         map.panTo(lokasiBaru);
                     },
                     (error) => {
                         console.warn("Gagal mendapatkan lokasi: ", error.message);
                     },
                     {
-                        enableHighAccuracy: true, // Penting agar GPS akurat saat pengunjung berjalan kaki
+                        enableHighAccuracy: true,
                         maximumAge: 0,
                         timeout: 5000
                     }
@@ -92,7 +130,8 @@
         }
     </script>
 
-    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB56tNmyAQvTeljCCwPKCa_J13JC0nEs7U&callback=initMap"></script>
+    <!-- Memuat Google Maps API dengan library marker -->
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB56tNmyAQvTeljCCwPKCa_J13JC0nEs7U&libraries=marker&loading=async&callback=initMap"></script>
 
 </body>
 </html>
