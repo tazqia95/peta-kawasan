@@ -2,43 +2,30 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Peta Tracking Pengunjung</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Peta Interaktif Sari Ater - Holden GPS Tracker</title>
+    <!-- Masukkan CSS Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        /* Mengatur agar peta tampil penuh di layar HP */
         body, html {
-            height: 100%;
             margin: 0;
             padding: 0;
-        }
-        #map {
             height: 100%;
             width: 100%;
+            background-color: #0b1a0b;
         }
-
-        /* --- Efek Animasi Berdenyut untuk Ikon Mobil --- */
-        @keyframes carPulseAnimation {
-            0% {
-                transform: translate(-50%, -50%) scale(1);
-                filter: drop-shadow(0 0 0 rgba(0, 122, 255, 0));
-            }
-            50% {
-                transform: translate(-50%, -50%) scale(1.15); /* Mobil sedikit membesar */
-                filter: drop-shadow(0 0 12px rgba(0, 122, 255, 0.8)); /* Bayangan bersinar biru */
-            }
-            100% {
-                transform: translate(-50%, -50%) scale(1);
-                filter: drop-shadow(0 0 0 rgba(0, 122, 255, 0));
-            }
+        #map {
+            height: 100vh;
+            width: 100vw;
         }
-
-        /* Class CSS untuk dipasang ke elemen gambar mobil */
-        .pulsing-car {
-            width: 50px;
-            height: auto;
-            position: absolute;
-            animation: carPulseAnimation 1.5s infinite ease-in-out;
-            transform-origin: center center;
+        /* Styling untuk Ikon Mobil Holden dengan efek Glow Biru */
+        .holden-icon {
+            background: rgba(0, 150, 255, 0.2);
+            border-radius: 50%;
+            box-shadow: 0 0 12px rgba(0, 150, 255, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
     </style>
 </head>
@@ -46,92 +33,77 @@
 
     <div id="map"></div>
 
+    <!-- Masukkan JavaScript Leaflet -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        let map;
-        let userMarker;
+        // 1. Inisialisasi Peta dengan CRS.Simple agar gambar 2D presisi sebagai kanvas
+        var map = L.map('map', {
+            crs: L.CRS.Simple,
+            minZoom: -3,
+            maxZoom: 4,
+            zoomControl: false
+        });
 
-        async function initMap() {
-            // Membaca parameter dari URL (lat, lng, dan nama pos)
-            const urlParams = new URLSearchParams(window.location.search);
-            
-            // Nilai default jika URL dibuka tanpa parameter
-            const defaultLat = parseFloat(urlParams.get('lat')) || -6.7373; 
-            const defaultLng = parseFloat(urlParams.get('lng')) || 107.6536;
-            const namaPos = urlParams.get('pos') || "Pos Informasi";
+        // 2. Sesuaikan ukuran piksel gambar masterplan Anda
+        var w = 2000; 
+        var h = 1143;
+        var southWest = map.unproject([0, h], map.getMaxZoom());
+        var northEast = map.unproject([w, 0], map.getMaxZoom());
+        var imageBounds = new L.LatLngBounds(southWest, northEast);
 
-            const titikAwal = { lat: defaultLat, lng: defaultLng };
+        // 3. Masukkan Gambar Masterplan Sebagai Peta Utama
+        var masterplanOverlay = L.imageOverlay('masterplan.png', imageBounds).addTo(map);
+        
+        // Memusatkan tampilan layar langsung ke tengah gambar masterplan dengan zoom yang pas
+        var centerPoint = map.unproject([w / 2, h / 2], map.getMaxZoom());
+        map.setView(centerPoint, 0);
 
-            // Memuat library Google Maps dan Marker
-            const { Map } = await google.maps.importLibrary("maps");
-            const { AdvancedMarkerElement } = await google.maps.importLibrary("marker");
+        // 4. Membuat Ikon Kustom untuk Mobil Klasik Holden Kingswood
+        var holdenIcon = L.divIcon({
+            className: 'holden-icon',
+            html: '<img src="holden_icon.png" style="width: 45px; height: 45px; transform: rotate(0deg); transition: transform 0.1s ease;" id="car-img" />',
+            iconSize: [50, 50],
+            iconAnchor: [25, 25]
+        });
 
-            // Inisialisasi Google Maps
-            map = new Map(document.getElementById("map"), {
-                center: titikAwal,
-                zoom: 18,
-                disableDefaultUI: true,
-                mapId: "DEMO_MAP_ID"
+        // Menempatkan mobil tepat di tengah peta masterplan
+        var carMarker = L.marker(centerPoint, {icon: holdenIcon}).addTo(map);
+        carMarker.bindPopup("<b>Holden Kingswood Sari Ater</b><br>Kendaraan Wisata Interaktif").openPopup();
+
+        // 5. Integrasi GPS Nyata (Menerjemahkan koordinat GPS ke piksel masterplan)
+        if (navigator.geolocation) {
+            navigator.geolocation.watchPosition(function(position) {
+                var lat = position.coords.latitude;
+                var lng = position.coords.longitude;
+                
+                // Konversi koordinat lapangan ke titik piksel masterplan
+                var xMapped = (lng - 107.690) * 200000; 
+                var yMapped = ( -6.740 - lat ) * 200000;
+                
+                var gpsPoint = map.unproject([xMapped, yMapped], map.getMaxZoom());
+                carMarker.setLatLng(gpsPoint);
+                
+            }, function(error) {
+                console.warn("GPS belum aktif: " + error.message);
+            }, {
+                enableHighAccuracy: true,
+                maximumAge: 0,
+                timeout: 5000
             });
-
-            // 1. Membuat elemen gambar mobil dengan efek berdenyut
-            const carElement = document.createElement('img');
-            carElement.src = 'mobil.png'; // Pastikan file gambar mobil.png ada di folder yang sama
-            carElement.className = 'pulsing-car'; // Menghubungkan ke animasi CSS di atas
-
-            // 2. Gunakan AdvancedMarkerElement dengan ikon mobil
-            userMarker = new AdvancedMarkerElement({
-                map: map,
-                position: titikAwal,
-                title: `Lokasi Awal: ${namaPos}`,
-                content: carElement
-            });
-
-            // Info Window sederhana untuk memberi tahu pengunjung posisi awal mereka
-            const infoWindow = new google.maps.InfoWindow({
-                content: `<b>Anda berada di ${namaPos}</b><br>Mengaktifkan GPS...`
-            });
-            
-            infoWindow.open({
-                anchor: userMarker,
-                map: map,
-            });
-
-            // Memulai pelacakan GPS
-            mulaiTracking();
         }
 
-        function mulaiTracking() {
-            if (navigator.geolocation) {
-                navigator.geolocation.watchPosition(
-                    (position) => {
-                        const lokasiBaru = {
-                            lat: position.coords.latitude,
-                            lng: position.coords.longitude,
-                        };
-
-                        // Menggeser posisi mobil ke lokasi GPS terbaru secara real-time
-                        userMarker.position = lokasiBaru;
-                        
-                        // Membuat peta otomatis bergeser mengikuti pergerakan GPS
-                        map.panTo(lokasiBaru);
-                    },
-                    (error) => {
-                        console.warn("Gagal mendapatkan lokasi: ", error.message);
-                    },
-                    {
-                        enableHighAccuracy: true,
-                        maximumAge: 0,
-                        timeout: 5000
+        // 6. Mengaktifkan Kompas Giroskop HP untuk Memutar Aset Mobil Holden
+        if (window.DeviceOrientationEvent) {
+            window.addEventListener('deviceorientation', function(event) {
+                var compassHeading = event.alpha; // Arah kompas (0 - 360 derajat)
+                if (compassHeading !== null) {
+                    var carImg = document.getElementById('car-img');
+                    if (carImg) {
+                        carImg.style.transform = 'rotate(' + compassHeading + 'deg)';
                     }
-                );
-            } else {
-                alert("Browser pada perangkat ini tidak mendukung pelacakan GPS.");
-            }
+                }
+            }, true);
         }
     </script>
-
-    <!-- Memuat Google Maps API dengan library marker -->
-    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB56tNmyAQvTeljCCwPKCa_J13JC0nEs7U&libraries=marker&loading=async&callback=initMap"></script>
-
 </body>
 </html>
