@@ -27,16 +27,31 @@
             align-items: center;
             justify-content: center;
         }
+        /* Panel Informasi Status GPS di Pojok Layar */
+        #gps-info {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.75);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-family: sans-serif;
+            font-size: 12px;
+            z-index: 1000;
+            max-width: 250px;
+        }
     </style>
 </head>
 <body>
 
     <div id="map"></div>
+    <div id="gps-info">Menunggu sinyal GPS HP Anda...</div>
 
     <!-- Masukkan JavaScript Leaflet -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // 1. Inisialisasi Peta dengan CRS.Simple agar gambar 2D presisi sebagai kanvas
+        // 1. Inisialisasi Peta dengan CRS.Simple (Kanvas Masterplan 2D)
         var map = L.map('map', {
             crs: L.CRS.Simple,
             minZoom: -3,
@@ -44,7 +59,7 @@
             zoomControl: false
         });
 
-        // 2. Sesuaikan ukuran piksel gambar masterplan Anda
+        // 2. Ukuran piksel gambar masterplan Anda
         var w = 2000; 
         var h = 1143;
         var southWest = map.unproject([0, h], map.getMaxZoom());
@@ -54,7 +69,7 @@
         // 3. Masukkan Gambar Masterplan Sebagai Peta Utama
         var masterplanOverlay = L.imageOverlay('masterplan.png', imageBounds).addTo(map);
         
-        // Memusatkan tampilan layar langsung ke tengah gambar masterplan dengan zoom yang pas
+        // Memusatkan tampilan layar ke tengah masterplan
         var centerPoint = map.unproject([w / 2, h / 2], map.getMaxZoom());
         map.setView(centerPoint, 0);
 
@@ -66,30 +81,45 @@
             iconAnchor: [25, 25]
         });
 
-        // Menempatkan mobil tepat di tengah peta masterplan
         var carMarker = L.marker(centerPoint, {icon: holdenIcon}).addTo(map);
         carMarker.bindPopup("<b>Holden Kingswood Sari Ater</b><br>Kendaraan Wisata Interaktif").openPopup();
 
-        // 5. Integrasi GPS Nyata (Menerjemahkan koordinat GPS ke piksel masterplan)
+        // 5. Integrasi GPS Nyata dengan Kalibrasi Area Ciater/Sari Ater (-6.745, 107.695)
         if (navigator.geolocation) {
             navigator.geolocation.watchPosition(function(position) {
                 var lat = position.coords.latitude;
                 var lng = position.coords.longitude;
                 
-                // Konversi koordinat lapangan ke titik piksel masterplan
-                var xMapped = (lng - 107.690) * 200000; 
-                var yMapped = ( -6.740 - lat ) * 200000;
+                document.getElementById('gps-info').innerHTML = 
+                    "<b>GPS Aktif:</b><br>Lat: " + lat.toFixed(5) + "<br>Lng: " + lng.toFixed(5);
+
+                // TITIK KALIBRASI AREA SARI ATER:
+                // Pusat koordinat GPS dunia nyata kawasan Sari Ater (Letak tengah masterplan)
+                var centerLat = -6.74500; 
+                var centerLng = 107.69500;
+
+                // Faktor pengali skala piksel (bisa disesuaikan jika pergerakan mobil terlalu cepat/lambat di peta)
+                var scaleFactor = 150000; 
+
+                // Menghitung selisih koordinat dan menerjemahkannya ke piksel kanvas
+                var xMapped = (w / 2) + ((lng - centerLng) * scaleFactor);
+                var yMapped = (h / 2) - ((lat - centerLat) * scaleFactor); // Minus karena sumbu Y kanvas ke bawah
                 
                 var gpsPoint = map.unproject([xMapped, yMapped], map.getMaxZoom());
                 carMarker.setLatLng(gpsPoint);
                 
+                // Opsional: Peta otomatis mengikuti posisi mobil
+                // map.panTo(gpsPoint);
+                
             }, function(error) {
-                console.warn("GPS belum aktif: " + error.message);
+                document.getElementById('gps-info').innerHTML = "<b>Gagal Mendeteksi GPS:</b> " + error.message;
             }, {
                 enableHighAccuracy: true,
                 maximumAge: 0,
                 timeout: 5000
             });
+        } else {
+            document.getElementById('gps-info').innerHTML = "Browser Anda tidak mendukung GPS.";
         }
 
         // 6. Mengaktifkan Kompas Giroskop HP untuk Memutar Aset Mobil Holden
