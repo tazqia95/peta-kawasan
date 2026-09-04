@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Peta Masterplan Sari Ater - Holden GPS Tracker</title>
-    <!-- Masukkan CSS Leaflet -->
+    <!-- CSS Leaflet -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         body, html {
@@ -17,11 +17,11 @@
         #map {
             height: 100vh;
             width: 100vw;
-            background: #e5e3df; /* Warna dasar area kosong peta */
+            background: #ffffff; /* Warna dasar area kosong peta */
         }
-        /* Styling untuk Ikon Mobil Holden dengan efek Glow Biru */
+        /* Styling Ikon Mobil  */
         .holden-icon {
-            background: rgba(0, 150, 255, 0.3);
+            background: rgba(236, 233, 28, 0.3);
             border-radius: 50%;
             box-shadow: 0 0 15px rgba(0, 150, 255, 0.8);
             display: flex;
@@ -55,14 +55,14 @@
         var currentLat = -6.737448411559581;
         var currentLng = 107.65822384739292;
 
-        // Inisialisasi Peta dengan batasan minZoom agar tidak bisa terlalu jauh di-zoom out
+        
         var map = L.map('map', {
             zoomControl: false,
-            minZoom: 16, // Batas minimal zoom out (bisa dinaikkan ke 17 jika ingin lebih mengunci)
+            minZoom: 17, // Batas minimal zoom out (bisa dinaikkan ke 17 jika ingin lebih mengunci)
             maxZoom: 21
         }).setView([currentLat, currentLng], 18);
 
-        // 2. Menampilkan Masterplan secara Permanen & Mengunci Batas Geser (MaxBounds)
+        
         var img = new Image();
         img.src = 'masterplan.png';
         
@@ -81,11 +81,11 @@
                 baseLngSpan = 0.0040 * (imgWidth / imgHeight);
             }
 
-            var finalScale = 4.7; // Skala hasil kalibrasi Anda
+            var finalScale = 4.7; 
             var latSpan = baseLatSpan * finalScale;
             var lngSpan = baseLngSpan * finalScale;
 
-            var latOffset = 0.00240; // Offset hasil kalibrasi Anda
+            var latOffset = 0.00240; 
             var lngOffset = 0.00240;
 
             var activeCenterLat = currentLat + latOffset; 
@@ -96,7 +96,7 @@
                 [activeCenterLat + (latSpan / 2), activeCenterLng + (lngSpan / 2)]  
             ];
 
-            // Memasukkan gambar masterplan sebagai tampilan peta utama
+            
             L.imageOverlay('masterplan.png', masterplanBounds, {
                 opacity: 1.0, 
                 interactive: false
@@ -117,7 +117,7 @@
 
         // Menempatkan marker mobil di koordinat Anda
         var carMarker = L.marker([currentLat, currentLng], {icon: holdenIcon}).addTo(map);
-        carMarker.bindPopup("<b>Lokasi Anda</b><br>Kawasan Atma High Point").openPopup();
+        carMarker.bindPopup("<b>Lokasi Anda</b><br>Kawasan Wisata Atma High Point").openPopup();
 
         // 4. Melacak GPS Nyata Pengguna secara Real-Time (atau Sensor Manual PC)
         if (navigator.geolocation) {
