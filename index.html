@@ -12,7 +12,6 @@
             padding: 0;
             height: 100%;
             width: 100%;
-            background-color: #0b1a0b;
         }
         #map {
             height: 100vh;
@@ -20,58 +19,92 @@
         }
         /* Styling untuk Ikon Mobil Holden dengan efek Glow Biru */
         .holden-icon {
-            background: rgba(0, 150, 255, 0.2);
+            background: rgba(0, 150, 255, 0.3);
             border-radius: 50%;
-            box-shadow: 0 0 12px rgba(0, 150, 255, 0.8);
+            box-shadow: 0 0 15px rgba(0, 150, 255, 0.8);
             display: flex;
             align-items: center;
             justify-content: center;
         }
-        /* Panel Informasi Status GPS di Pojok Layar */
-        #gps-info {
+        /* Panel Info GPS di Layar */
+        #gps-status {
             position: absolute;
             bottom: 20px;
             left: 20px;
-            background: rgba(0, 0, 0, 0.75);
+            background: rgba(0, 0, 0, 0.8);
             color: white;
-            padding: 10px 15px;
+            padding: 10px 14px;
             border-radius: 8px;
             font-family: sans-serif;
-            font-size: 12px;
+            font-size: 11px;
             z-index: 1000;
-            max-width: 250px;
         }
     </style>
 </head>
 <body>
 
     <div id="map"></div>
-    <div id="gps-info">Menunggu sinyal GPS HP Anda...</div>
+    <div id="gps-status">Mencari sinyal GPS...</div>
 
     <!-- Masukkan JavaScript Leaflet -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // 1. Inisialisasi Peta dengan CRS.Simple (Kanvas Masterplan 2D)
+        // 1. Titik Pusat Awal di Sari Ater
+        var currentLat = -6.737448411559581;
+        var currentLng = 107.65822384739292;
+
         var map = L.map('map', {
-            crs: L.CRS.Simple,
-            minZoom: -3,
-            maxZoom: 4,
             zoomControl: false
-        });
+        }).setView([currentLat, currentLng], 18);
 
-        // 2. Ukuran piksel gambar masterplan Anda
-        var w = 2000; 
-        var h = 1143;
-        var southWest = map.unproject([0, h], map.getMaxZoom());
-        var northEast = map.unproject([w, 0], map.getMaxZoom());
-        var imageBounds = new L.LatLngBounds(southWest, northEast);
+        // 2. Lapisan Peta Google Maps Satelit Hybrid (Foto Udara + Label Jalan)
+        L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+            maxZoom: 21,
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+            attribution: '© Google Maps | Sari Ater Project'
+        }).addTo(map);
 
-        // 3. Masukkan Gambar Masterplan Sebagai Peta Utama
-        var masterplanOverlay = L.imageOverlay('masterplan.png', imageBounds).addTo(map);
+        // 3. Menampilkan Masterplan Permanen Berdasarkan Angka Kalibrasi Anda
+        var img = new Image();
+        img.src = 'masterplan.png';
         
-        // Memusatkan tampilan layar ke tengah masterplan
-        var centerPoint = map.unproject([w / 2, h / 2], map.getMaxZoom());
-        map.setView(centerPoint, 0);
+        img.onload = function() {
+            var imgWidth = this.width;   
+            var imgHeight = this.height; 
+            
+            var baseLatSpan = 0.0035; 
+            var baseLngSpan = 0.0035;
+
+            if (imgWidth >= imgHeight) {
+                baseLngSpan = 0.0040;
+                baseLatSpan = 0.0040 * (imgHeight / imgWidth);
+            } else {
+                baseLatSpan = 0.0040;
+                baseLngSpan = 0.0040 * (imgWidth / imgHeight);
+            }
+
+            // Angka skala dan offset hasil kalibrasi Anda dikunci di sini
+            var finalScale = 4.7; 
+            var latSpan = baseLatSpan * finalScale;
+            var lngSpan = baseLngSpan * finalScale;
+
+            var latOffset = 0.00240;
+            var lngOffset = 0.00240;
+
+            var activeCenterLat = currentLat + latOffset; 
+            var activeCenterLng = currentLng + lngOffset;
+
+            var masterplanBounds = [
+                [activeCenterLat - (latSpan / 2), activeCenterLng - (lngSpan / 2)], 
+                [activeCenterLat + (latSpan / 2), activeCenterLng + (lngSpan / 2)]  
+            ];
+
+            // Opacity diatur 1.0 sesuai pengaturan Anda
+            L.imageOverlay('masterplan.png', masterplanBounds, {
+                opacity: 1.0, 
+                interactive: false
+            }).addTo(map);
+        };
 
         // 4. Membuat Ikon Kustom untuk Mobil Klasik Holden Kingswood
         var holdenIcon = L.divIcon({
@@ -81,48 +114,34 @@
             iconAnchor: [25, 25]
         });
 
-        var carMarker = L.marker(centerPoint, {icon: holdenIcon}).addTo(map);
-        carMarker.bindPopup("<b>Holden Kingswood Sari Ater</b><br>Kendaraan Wisata Interaktif").openPopup();
+        // Menempatkan marker mobil di koordinat Anda
+        var carMarker = L.marker([currentLat, currentLng], {icon: holdenIcon}).addTo(map);
+        carMarker.bindPopup("<b>Holden Kingswood</b><br>Kendaraan Wisata Sari Ater").openPopup();
 
-        // 5. Integrasi GPS Nyata dengan Kalibrasi Area Ciater/Sari Ater (-6.745, 107.695)
+        // 5. Melacak GPS Nyata Pengguna secara Real-Time (atau Sensor Manual PC)
         if (navigator.geolocation) {
             navigator.geolocation.watchPosition(function(position) {
                 var lat = position.coords.latitude;
                 var lng = position.coords.longitude;
                 
-                document.getElementById('gps-info').innerHTML = 
-                    "<b>GPS Aktif:</b><br>Lat: " + lat.toFixed(5) + "<br>Lng: " + lng.toFixed(5);
+                document.getElementById('gps-status').innerHTML = 
+                    "<b>GPS Terhubung:</b><br>Lat: " + lat.toFixed(5) + "<br>Lng: " + lng.toFixed(5);
 
-                // TITIK KALIBRASI AREA SARI ATER:
-                // Pusat koordinat GPS dunia nyata kawasan Sari Ater (Letak tengah masterplan)
-                var centerLat = -6.74500; 
-                var centerLng = 107.69500;
+                // Memperbarui posisi marker mobil sesuai pergerakan GPS
+                carMarker.setLatLng([lat, lng]);
 
-                // Faktor pengali skala piksel (bisa disesuaikan jika pergerakan mobil terlalu cepat/lambat di peta)
-                var scaleFactor = 150000; 
-
-                // Menghitung selisih koordinat dan menerjemahkannya ke piksel kanvas
-                var xMapped = (w / 2) + ((lng - centerLng) * scaleFactor);
-                var yMapped = (h / 2) - ((lat - centerLat) * scaleFactor); // Minus karena sumbu Y kanvas ke bawah
-                
-                var gpsPoint = map.unproject([xMapped, yMapped], map.getMaxZoom());
-                carMarker.setLatLng(gpsPoint);
-                
-                // Opsional: Peta otomatis mengikuti posisi mobil
-                // map.panTo(gpsPoint);
-                
             }, function(error) {
-                document.getElementById('gps-info').innerHTML = "<b>Gagal Mendeteksi GPS:</b> " + error.message;
+                document.getElementById('gps-status').innerHTML = "<b>GPS Error:</b> " + error.message;
             }, {
                 enableHighAccuracy: true,
                 maximumAge: 0,
                 timeout: 5000
             });
         } else {
-            document.getElementById('gps-info').innerHTML = "Browser Anda tidak mendukung GPS.";
+            document.getElementById('gps-status').innerHTML = "GPS tidak didukung browser ini.";
         }
 
-        // 6. Mengaktifkan Kompas Giroskop HP untuk Memutar Aset Mobil Holden
+        // 6. Mengaktifkan Kompas Giroskop HP untuk Memutar Aset Mobil
         if (window.DeviceOrientationEvent) {
             window.addEventListener('deviceorientation', function(event) {
                 var compassHeading = event.alpha; // Arah kompas (0 - 360 derajat)
